@@ -7,16 +7,8 @@ import "@openzeppelin/contracts/utils/Context.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@chainlink/contracts/src/v0.8/interfaces/KeeperCompatibleInterface.sol";
 
-/**
- * 1. Accept bets
- * 2. Reset timer upon accepted bet
- * 3. If timer expires, last bet is winner
- * 4. Transfer funds to winner
- * 5. Restart game
- */
-
 error ChickenGame__BetTooSmall();
-error ChickenGame__NotOpen();
+error ChickenGame__BettingClosed();
 error ChickenGame__UpkeepNotNeeded();
 error ChickenGame__TransferFailed();
 
@@ -52,7 +44,7 @@ contract ChickenGame is Ownable {
         if (
             block.timestamp - s_lastBetTimestamp > i_interval && address(this).balance > msg.value
         ) {
-            revert ChickenGame__NotOpen();
+            revert ChickenGame__BettingClosed();
         }
         emit BetPlaced(msg.sender);
         s_recentBettor = msg.sender;
@@ -71,10 +63,7 @@ contract ChickenGame is Ownable {
     {
         bool timePassed = (block.timestamp - s_lastBetTimestamp) > i_interval;
         bool hasBalance = address(this).balance > i_betSize;
-        upkeepNeeded =
-            /* isOpen && */
-            timePassed &&
-            hasBalance;
+        upkeepNeeded = timePassed && hasBalance;
     }
 
     function performUpkeep(

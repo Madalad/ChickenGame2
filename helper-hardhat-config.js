@@ -13,6 +13,12 @@ const networkConfig = {
         callbackGasLimit: "500000", // 500,000 gas
         interval: "30",
     },
+    43113: {
+        name: "fuji",
+        betSize: ethers.utils.parseEther("0.1"),
+        callbackGasLimit: "500000",
+        interval: "30",
+    },
 }
 
 const developmentChains = ["hardhat", "localhost"]

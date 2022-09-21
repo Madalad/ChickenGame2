@@ -4,9 +4,11 @@ coverage
 coverage.json
 typechain
 typechain-types
+ChickenGame.staging.test.js
 
 #Hardhat files
 cache
 artifacts
 yarn.lock
+deployments
 

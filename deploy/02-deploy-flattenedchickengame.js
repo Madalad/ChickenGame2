@@ -13,7 +13,7 @@ module.exports = async function ({ getNamedAccounts, deployments }) {
     const interval = networkConfig[chainId]["interval"]
     const edge = 500 // 5%
     const args = [betSize, interval, edge, vault]
-    const chickenGame = await deploy("ChickenGame", {
+    const flattenedChickenGame = await deploy("FlattenedChickenGame", {
         from: deployer,
         args: args,
         log: true,
@@ -22,11 +22,11 @@ module.exports = async function ({ getNamedAccounts, deployments }) {
 
     if (!developmentChains.includes(network.name) && network.config.apiKey) {
         log("Verifying...")
-        log(chickenGame.address)
-        await verify(chickenGame.address, args)
+        log(flattenedChickenGame.address)
+        await verify(flattenedChickenGame.address, args)
     }
 
     log("-----------------------------------------")
 }
 
-module.exports.tags = ["all", "chickenGame"]
+//module.exports.tags = ["all", "flattenedChickenGame"]
