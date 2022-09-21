@@ -9,82 +9,74 @@ import "@chainlink/contracts/src/v0.8/interfaces/KeeperCompatibleInterface.sol";
 
 error ChickenGame__BetTooSmall();
 error ChickenGame__BettingClosed();
-error ChickenGame__UpkeepNotNeeded();
+error ChickenGame__RoundInProgress();
 error ChickenGame__TransferFailed();
 
 contract ChickenGame is Ownable {
+    ERC20 USDC;
+
+    uint256 private s_balance;
     uint256 private immutable i_betSize;
     uint256 private immutable i_interval;
     uint256 private s_lastBetTimestamp;
-    uint256 private immutable i_edge;
+    uint16 private s_rake;
+    uint256 private s_settleReward;
     address private s_recentBettor;
     address private s_recentWinner;
     uint256 private s_recentWinAmount;
     address payable private immutable i_vault;
 
-    event BetPlaced(address bettor);
-    event RoundSettled(address winner, uint256 amount);
+    event BetPlaced(uint256 blockTimestamp, address bettor);
+    event RoundSettled(address winner, uint256 amount, address settler);
 
     constructor(
         uint256 _betSize,
         uint256 _interval,
-        uint256 _edge,
-        address payable _vault
+        uint16 _rake,
+        uint256 _settleReward,
+        address payable _vault,
+        address _usdcAddress
     ) {
+        USDC = ERC20(_usdcAddress);
         i_betSize = _betSize;
         i_interval = _interval;
-        i_edge = _edge;
+        s_rake = _rake;
+        s_settleReward = _settleReward;
         i_vault = _vault;
     }
 
-    function bet() external payable {
-        if (msg.value < i_betSize) {
-            revert ChickenGame__BetTooSmall();
-        }
+    function bet() external {
         if (
-            block.timestamp - s_lastBetTimestamp > i_interval && address(this).balance > msg.value
+            block.timestamp - s_lastBetTimestamp > i_interval &&
+            USDC.balanceOf(address(this)) > i_betSize
         ) {
             revert ChickenGame__BettingClosed();
         }
-        emit BetPlaced(msg.sender);
+        USDC.transferFrom(msg.sender, address(this), i_betSize);
+        emit BetPlaced(block.timestamp, msg.sender);
+        s_balance += i_betSize;
         s_recentBettor = msg.sender;
         s_lastBetTimestamp = block.timestamp;
     }
 
-    function checkUpkeep(
-        bytes memory /* checkData */ /*override*/
-    )
-        public
-        view
-        returns (
-            bool upkeepNeeded,
-            bytes memory /* performData */
-        )
-    {
-        bool timePassed = (block.timestamp - s_lastBetTimestamp) > i_interval;
-        bool hasBalance = address(this).balance > i_betSize;
-        upkeepNeeded = timePassed && hasBalance;
-    }
-
-    function performUpkeep(
-        bytes calldata /* performData */ /*override*/
-    ) external {
-        (bool upkeepNeeded, ) = checkUpkeep("");
-        if (!upkeepNeeded) {
-            revert ChickenGame__UpkeepNotNeeded();
+    function settleRound() external {
+        if (!(block.timestamp - s_lastBetTimestamp > i_interval && s_balance >= 2 * i_betSize)) {
+            revert ChickenGame__RoundInProgress();
         }
-        uint256 balance = (address(this).balance * (10000 - i_edge)) / 10000;
-        (bool success, ) = s_recentBettor.call{value: balance}("");
-        if (!success) {
-            revert ChickenGame__TransferFailed();
-        }
+        uint256 rake = (s_balance * s_rake) / 10000;
+        uint256 winnings = s_balance - rake - s_settleReward;
+        USDC.transfer(s_recentBettor, winnings);
+        USDC.transfer(i_vault, rake);
+        USDC.transfer(msg.sender, s_settleReward);
 
-        emit RoundSettled(msg.sender, balance);
+        emit RoundSettled(s_recentBettor, winnings, msg.sender);
         s_recentWinner = s_recentBettor;
-        s_recentWinAmount = balance;
-        i_vault.transfer(address(this).balance);
+        s_recentWinAmount = winnings;
         s_recentBettor = address(0);
+        s_balance = 0;
     }
+
+    // Getters
 
     function getBetsize() public view returns (uint256) {
         return i_betSize;
@@ -98,8 +90,12 @@ contract ChickenGame is Ownable {
         return s_lastBetTimestamp;
     }
 
-    function getEdge() public view returns (uint256) {
-        return i_edge;
+    function getRake() public view returns (uint16) {
+        return s_rake;
+    }
+
+    function getSettleReward() public view returns (uint256) {
+        return s_settleReward;
     }
 
     function getRecentWinner() public view returns (address) {
@@ -115,10 +111,21 @@ contract ChickenGame is Ownable {
     }
 
     function getBalance() public view returns (uint256) {
-        return address(this).balance;
+        return s_balance;
     }
 
     function getVaultAddress() public view returns (address) {
         return i_vault;
+    }
+
+    // Setters
+
+    function setRake(uint16 _newrake) public onlyOwner {
+        require(_newrake < 10000, "Cannot set rake to >100%.");
+        s_rake = _newrake;
+    }
+
+    function setSettleReward(uint256 _newSettleReward) public onlyOwner {
+        s_settleReward = _newSettleReward;
     }
 }

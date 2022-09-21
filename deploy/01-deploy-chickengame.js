@@ -12,7 +12,9 @@ module.exports = async function ({ getNamedAccounts, deployments }) {
     //const callbackGasLimit = networkConfig[chainId]["callbackGasLimit"]
     const interval = networkConfig[chainId]["interval"]
     const edge = 500 // 5%
-    const args = [betSize, interval, edge, vault]
+    const settleReward = 10 ** 6 // $1
+    const mockUSDC = await ethers.getContract("MockUSDC")
+    const args = [betSize, interval, edge, settleReward, vault, mockUSDC.address]
     const chickenGame = await deploy("ChickenGame", {
         from: deployer,
         args: args,
