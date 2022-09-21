@@ -180,12 +180,22 @@ const { developmentChains, networkConfig } = require("../../helper-hardhat-confi
                       "Cannot set rake to >100%."
                   )
               })
+              it("should revert if non-owner calls", async function () {
+                  await expect(chickenGame.connect(bettor).setRake(200)).to.be.revertedWith(
+                      "Ownable: caller is not the owner"
+                  )
+              })
               it("should get settle reward", async function () {
                   const newSettleReward = 5 * 10 ** 6 // $5
                   await chickenGame.setSettleReward(newSettleReward)
                   assert.equal(
                       (await chickenGame.getSettleReward()).toString(),
                       newSettleReward.toString()
+                  )
+              })
+              it("should revert if non-owner calls", async function () {
+                  await expect(chickenGame.connect(bettor).setSettleReward(200)).to.be.revertedWith(
+                      "Ownable: caller is not the owner"
                   )
               })
           })
